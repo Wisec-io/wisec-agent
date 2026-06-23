@@ -1,0 +1,12 @@
+# Compiled binaries
+/wisec-agent
+/pipeline-agent
+*.exe
+
+# Artifacts produced at runtime
+gitleaks-report.json
+wisec-bom.json
+
+# Local environment
+*.env
+.env
