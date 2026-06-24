@@ -7,7 +7,7 @@ diff, typosquatting).
 
 It is designed to be auditable: it is the only Wisec component that runs inside
 your infrastructure, so its source is public. **Your source code is never read,
-transmitted or stored** — the agent only collects dependency manifests and
+transmitted or stored** - the agent only collects dependency manifests and
 commit metadata.
 
 ## What it sends
