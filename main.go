@@ -34,6 +34,17 @@ func main() {
 
 	logInfo("Collecting build metadata...")
 	dependencies := scanDependencies()
+	// In a monorepo or multi-language repo, no dependency manifest sits at the
+	// repository root. Fall back to an SBOM (e.g. produced by syft) so CVE and
+	// typosquatting analysis still see the dependency set.
+	if len(dependencies) == 0 {
+		if sbomPath := locateSBOM(); sbomPath != "" {
+			if derived := dependenciesFromSBOM(sbomPath); len(derived) > 0 {
+				dependencies = derived
+				logInfo("  %d dependencies derived from SBOM %s", len(derived), sbomPath)
+			}
+		}
+	}
 
 	authorEmail, err := gitCommitAuthorEmail()
 	if err != nil {

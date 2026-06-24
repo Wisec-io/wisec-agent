@@ -112,7 +112,7 @@ func pollGate(gateURL string, pub ed25519.PublicKey, priv ed25519.PrivateKey) (g
 
 // reportGate prints the decision and exits non-zero when the build is blocked.
 func reportGate(result gateResponse) {
-	logInfo("Risk score: %.0f/100", result.RiskScore)
+	logInfo("Security score: %.0f/100", result.RiskScore)
 	for _, v := range result.Violations {
 		logInfo("  [%s] %s: %s", strings.ToUpper(v.Action), v.PolicyName, v.Message)
 	}

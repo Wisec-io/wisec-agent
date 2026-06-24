@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -82,5 +83,31 @@ func runGitleaks() string {
 	if err != nil {
 		return "[]"
 	}
-	return string(report)
+	return normalizeGitleaksReport(report)
+}
+
+// normalizeGitleaksReport returns a canonical, compact JSON array of gitleaks
+// findings. gitleaks writes the empty result as "[]\n", so a raw string compare
+// against "[]" is fooled by the trailing newline and would report secrets that
+// do not exist. Parsing the report makes the "no secrets" decision robust and
+// guarantees the API receives valid JSON. The raw bytes are kept only when the
+// report is not a JSON array, so an unexpected format is still surfaced.
+func normalizeGitleaksReport(report []byte) string {
+	report = bytes.TrimSpace(report)
+	if len(report) == 0 {
+		return "[]"
+	}
+	var findings []json.RawMessage
+	if err := json.Unmarshal(report, &findings); err != nil {
+		logVerbose("gitleaks report is not a JSON array, sending as-is: %v", err)
+		return string(report)
+	}
+	if len(findings) == 0 {
+		return "[]"
+	}
+	normalized, err := json.Marshal(findings)
+	if err != nil {
+		return string(report)
+	}
+	return string(normalized)
 }

@@ -70,18 +70,25 @@ func buildManifest(dependencies []string, pub ed25519.PublicKey, priv ed25519.Pr
 	return manifest, sbomContent, sarifReport
 }
 
+// locateSBOM returns the path to an existing SBOM file: WISEC_SBOM_PATH when set,
+// otherwise the first matching candidate in the working directory. It returns ""
+// when none is present; no SBOM is generated here.
+func locateSBOM() string {
+	if sbomPath := os.Getenv("WISEC_SBOM_PATH"); sbomPath != "" {
+		return sbomPath
+	}
+	for _, candidate := range sbomCandidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
 // resolveSBOM locates or generates an SBOM, records its hash in the manifest,
 // and returns its content. An empty string means no SBOM was available.
 func resolveSBOM(manifest *Manifest, dependencies []string) string {
-	sbomPath := os.Getenv("WISEC_SBOM_PATH")
-	if sbomPath == "" {
-		for _, candidate := range sbomCandidates {
-			if _, err := os.Stat(candidate); err == nil {
-				sbomPath = candidate
-				break
-			}
-		}
-	}
+	sbomPath := locateSBOM()
 
 	if sbomPath == "" && len(dependencies) > 0 {
 		logInfo("  no SBOM file found, generating one from dependencies")

@@ -1,3 +1,3 @@
 module github.com/wisec-io/wisec-agent
 
-go 1.22
+go 1.25.0
