@@ -1,5 +1,5 @@
 BINARY  := wisec-agent
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+VERSION := $(shell git describe --tags --always --dirty --match 'v*' 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
 .PHONY: build static test fmt clean

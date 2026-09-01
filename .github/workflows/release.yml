@@ -1,0 +1,48 @@
+name: Release
+
+# Publishes a GitHub Release when a version tag is pushed. The binaries are
+# built from the tagged source and shipped with a SHA256SUMS file so that a
+# downloaded agent can be verified before it runs in a pipeline.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: false # no external dependencies, nothing to cache
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build release binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -eu
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            out="dist/wisec-agent-${VERSION}-${os}-${arch}"
+            echo "building $out"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "$out" .
+          done
+          cd dist && sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Publish release
+        # gh is preinstalled on the runner: no third-party action in the release path.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/* --generate-notes

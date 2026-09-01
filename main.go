@@ -3,8 +3,9 @@
 //
 // It runs in two modes:
 //
-//	wisec-agent          collect, sign and submit the build event (non-blocking)
-//	wisec-agent --gate   poll the API until policies are evaluated, exit non-zero on block
+//	wisec-agent            collect, sign and submit the build event (non-blocking)
+//	wisec-agent --gate     poll the API until policies are evaluated, exit non-zero on block
+//	wisec-agent --version  print the build version and exit
 package main
 
 import (
@@ -22,6 +23,13 @@ import (
 
 func main() {
 	log.SetFlags(0)
+
+	// Report the build version without needing a key or a repository: a pinned
+	// download is only useful if you can confirm what you actually got.
+	if slices.Contains(os.Args[1:], "--version") {
+		fmt.Println("wisec-agent " + version)
+		return
+	}
 
 	publicKey, privateKey := loadOrGenerateKeys()
 

@@ -29,8 +29,9 @@ and the canonical data travel with the event so the API can verify them.
 ## Modes
 
 ```sh
-wisec-agent          # collect, sign and submit the build event (non-blocking)
-wisec-agent --gate   # wait for policy evaluation, exit non-zero on a block
+wisec-agent            # collect, sign and submit the build event (non-blocking)
+wisec-agent --gate     # wait for policy evaluation, exit non-zero on a block
+wisec-agent --version  # print the build version and exit
 ```
 
 `wisec-agent` is fire-and-forget: it never fails the build. Policy enforcement
@@ -39,14 +40,46 @@ the API until analysis completes and exits non-zero when a policy blocks.
 
 ## Installation
 
+Every release is published on the [Releases page](https://github.com/Wisec-io/wisec-agent/releases)
+with a `SHA256SUMS` file. Pin a version and verify the checksum before running
+the agent in a pipeline:
+
 ```sh
-go install github.com/wisec-io/wisec-agent@latest
+VERSION=v1.0.0
+BASE=https://github.com/Wisec-io/wisec-agent/releases/download/$VERSION
+
+curl -fsSLO "$BASE/wisec-agent-$VERSION-linux-amd64"
+curl -fsSLO "$BASE/SHA256SUMS"
+sha256sum --ignore-missing -c SHA256SUMS
+
+install -m 0755 "wisec-agent-$VERSION-linux-amd64" /usr/local/bin/wisec-agent
 ```
 
-Or build a static binary from source:
+Wisec also mirrors the Linux amd64 build on its own object storage, which is
+convenient when a runner cannot reach GitHub:
 
 ```sh
-make build        # produces ./wisec-agent
+VERSION=v1.0.0
+BASE=https://wisec-downloads.s3.fr-par.scw.cloud
+
+curl -fsSLO "$BASE/wisec-agent-$VERSION-linux-amd64"
+curl -fsSL  "$BASE/wisec-agent-$VERSION-linux-amd64.sha256" | sha256sum -c -
+```
+
+The unversioned `$BASE/agent` URL always points at the latest build. It is fine
+for a quick trial, but pin a version for anything you rely on: an unpinned
+binary cannot be reproduced or audited after the fact.
+
+With the Go toolchain:
+
+```sh
+go install github.com/wisec-io/wisec-agent@v1.0.0
+```
+
+Or build from source:
+
+```sh
+make build        # produces ./wisec-agent, version from `git describe`
 ```
 
 ## Configuration
