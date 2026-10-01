@@ -93,7 +93,10 @@ func fetchLatestBuildHash(projectID uint, pub ed25519.PublicKey, priv ed25519.Pr
 }
 
 // signedGet performs a GET request authenticated with the agent key. The server
-// verifies the signature over "GET:<path>:<timestamp>".
+// verifies the signature over "GET:<path>:<timestamp>" and, since the timestamp
+// is now checked against a short window, a captured request stops working within
+// minutes instead of never. <path> carries whatever identifies the resource: for
+// the gate that includes the parameters, because they decide the answer.
 func signedGet(url, path string, pub ed25519.PublicKey, priv ed25519.PrivateKey) (*http.Response, error) {
 	timestamp := time.Now().UTC().Format(time.RFC3339)
 	message := fmt.Sprintf("GET:%s:%s", path, timestamp)

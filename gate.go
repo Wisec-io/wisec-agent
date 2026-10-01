@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -63,8 +64,13 @@ func runGateMode(pub ed25519.PublicKey, priv ed25519.PrivateKey) {
 	logInfo("Waiting for analysis (timeout %s, strict %v)...", timeout, strict)
 	deadline := time.Now().Add(timeout)
 
+	// The signed message binds the parameters, not just the path: they decide
+	// which verdict the server returns, so a signature that ignored them was
+	// reusable against any project of the organisation.
+	signedPath := gateSignedPath(projectID, commitHash)
+
 	for time.Now().Before(deadline) {
-		result, ok := pollGate(gateURL, pub, priv)
+		result, ok := pollGate(gateURL, signedPath, pub, priv)
 		if !ok {
 			time.Sleep(gatePollInterval)
 			continue
@@ -88,8 +94,15 @@ func runGateMode(pub ed25519.PublicKey, priv ed25519.PrivateKey) {
 	logInfo("Wisec gate timed out after %s; passing (set WISEC_STRICT=true to block on timeout)", timeout)
 }
 
-func pollGate(gateURL string, pub ed25519.PublicKey, priv ed25519.PrivateKey) (gateResponse, bool) {
-	resp, err := signedGet(gateURL, "/api/v1/events/gate", pub, priv)
+// gateSignedPath is the portion the server rebuilds in gateSignedMessage. The
+// parameter order is fixed on both sides: it is a signed string, not a query, so
+// it cannot be reordered by anything in between.
+func gateSignedPath(projectID, commitHash string) string {
+	return fmt.Sprintf("/api/v1/events/gate:project_id=%s&commit_hash=%s", projectID, commitHash)
+}
+
+func pollGate(gateURL, signedPath string, pub ed25519.PublicKey, priv ed25519.PrivateKey) (gateResponse, bool) {
+	resp, err := signedGet(gateURL, signedPath, pub, priv)
 	if err != nil {
 		logVerbose("gate poll error: %v", err)
 		return gateResponse{}, false
