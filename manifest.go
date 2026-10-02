@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -30,6 +31,12 @@ type ManifestPayload struct {
 	BinaryHash     string `json:"binary_hash,omitempty"`
 	SBOMHash       string `json:"sbom_hash,omitempty"`
 	ScanReportHash string `json:"scan_report_hash,omitempty"`
+	// ImageDigests are the container images the pipeline pushed, pinned by
+	// digest ("registry/repo@sha256:<hex>"), read from WISEC_IMAGE_DIGESTS.
+	// The manifest is part of the signed canonical form, which the API rebuilds
+	// from its own struct: the API learned this field first (2026-10-02), and
+	// omitempty keeps the canonical of a build without images unchanged.
+	ImageDigests []string `json:"image_digests,omitempty"`
 }
 
 type ManifestSignature struct {
@@ -61,6 +68,8 @@ func buildManifest(dependencies []string, pub ed25519.PublicKey, priv ed25519.Pr
 			logVerbose("could not hash binary %s: %v", binaryPath, err)
 		}
 	}
+
+	manifest.Payload.ImageDigests = imageDigestsFromEnv()
 
 	sbomContent := resolveSBOM(manifest, dependencies)
 	sarifReport := resolveSARIF(manifest)
@@ -199,4 +208,53 @@ func dropSARIFCode(v any) any {
 	default:
 		return v
 	}
+}
+
+// imageDigestsFromEnv reads WISEC_IMAGE_DIGESTS: one or more image references
+// pinned by digest, separated by commas, spaces or newlines, e.g.
+// "rg.fr-par.scw.cloud/acme/api@sha256:<64 hex>". A reference that is not
+// pinned by a well-formed sha256 digest is reported and left out: a tag can be
+// moved to another image, so only a digest identifies what was built.
+func imageDigestsFromEnv() []string {
+	raw := os.Getenv("WISEC_IMAGE_DIGESTS")
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var refs []string
+	seen := map[string]bool{}
+	for _, field := range strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\n' || r == '\t' || r == '\r'
+	}) {
+		ref, ok := normalizeImageReference(field)
+		if !ok {
+			logInfo("  WISEC_IMAGE_DIGESTS: %q is not pinned by a sha256 digest, ignored", field)
+			continue
+		}
+		if !seen[ref] {
+			seen[ref] = true
+			refs = append(refs, ref)
+		}
+	}
+	if len(refs) > 0 {
+		logInfo("  %d container image(s) declared for the provenance", len(refs))
+	}
+	return refs
+}
+
+// normalizeImageReference accepts "name@sha256:<64 hex>" (a tag before the
+// digest is allowed) and lowercases the digest, so the same image always signs
+// the same way.
+func normalizeImageReference(ref string) (string, bool) {
+	name, digest, ok := strings.Cut(strings.TrimSpace(ref), "@")
+	if !ok || name == "" {
+		return "", false
+	}
+	hexPart, ok := strings.CutPrefix(strings.ToLower(digest), "sha256:")
+	if !ok || len(hexPart) != 64 {
+		return "", false
+	}
+	if _, err := hex.DecodeString(hexPart); err != nil {
+		return "", false
+	}
+	return name + "@sha256:" + hexPart, true
 }

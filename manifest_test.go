@@ -73,3 +73,35 @@ func TestStripSARIFCodeRejectsNonJSON(t *testing.T) {
 		t.Error("a non-JSON report must be refused, not passed through")
 	}
 }
+
+const testImageHex = "1111111111111111111111111111111111111111111111111111111111111111"
+
+func TestImageDigestsFromEnv(t *testing.T) {
+	cases := []struct {
+		name string
+		env  string
+		want []string
+	}{
+		{"unset", "", nil},
+		{"one image", "rg.fr-par.scw.cloud/acme/api@sha256:" + testImageHex,
+			[]string{"rg.fr-par.scw.cloud/acme/api@sha256:" + testImageHex}},
+		{"several, any separator, digest lowercased, duplicates merged",
+			"a/api@sha256:" + strings.ToUpper(testImageHex) + ", b/web:1.2@sha256:" + testImageHex + "\n a/api@sha256:" + testImageHex,
+			[]string{"a/api@sha256:" + testImageHex, "b/web:1.2@sha256:" + testImageHex}},
+		{"a tag alone is not a digest", "a/api:latest", nil},
+		{"wrong algorithm", "a/api@sha512:" + testImageHex, nil},
+		{"not hex", "a/api@sha256:" + strings.Repeat("z", 64), nil},
+		{"no name", "@sha256:" + testImageHex, nil},
+		{"invalid ones are dropped, valid ones kept", "a/api:latest b/web@sha256:" + testImageHex,
+			[]string{"b/web@sha256:" + testImageHex}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("WISEC_IMAGE_DIGESTS", c.env)
+			got := imageDigestsFromEnv()
+			if strings.Join(got, "|") != strings.Join(c.want, "|") {
+				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}

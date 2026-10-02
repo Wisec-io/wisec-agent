@@ -105,6 +105,7 @@ Azure DevOps). It is configured through environment variables.
 | `WISEC_PROJECT_ID` | yes | Numeric Wisec project ID. |
 | `WISEC_APP_URL` | no | Dashboard base URL. Derived from the API endpoint when unset. |
 | `WISEC_BINARY_PATH` | no | Path to a build artifact to hash into the manifest. |
+| `WISEC_IMAGE_DIGESTS` | no | Container images the build pushed, pinned by digest (`registry/repo@sha256:<hex>`), separated by commas, spaces or newlines. Each becomes a subject of the SLSA provenance. A reference without a sha256 digest is ignored, since a tag can be moved. Since v1.3.0. |
 | `WISEC_SBOM_PATH` | no | Path to an existing SBOM. Auto-detected, otherwise generated. |
 | `WISEC_SCAN_REPORT_PATH` | no | Path to a SARIF report from another scanner. |
 | `WISEC_BUILD_DURATION_SECONDS` | no | Build duration to report, if the pipeline measures it. |

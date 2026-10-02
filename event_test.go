@@ -87,3 +87,23 @@ func TestCanonicalManifestIncluded(t *testing.T) {
 		t.Error("Manifest must be present when set")
 	}
 }
+
+// The API rebuilds the canonical form from its own Manifest struct and expects
+// the images under exactly this key (api-gateway: models.go, ImageDigests, and
+// TestImageDigestsAreSignedAndOlderManifestsAreUnchanged). A build without
+// images must not gain the key, or every earlier signature would break.
+func TestCanonicalManifestCarriesImageDigestsUnderTheAPIKey(t *testing.T) {
+	p := sampleParser()
+	p.Manifest = &Manifest{Version: "1.0", Payload: ManifestPayload{
+		ImageDigests: []string{"rg.fr-par.scw.cloud/acme/api@sha256:" + strings.Repeat("1", 64)},
+	}}
+	if got := string(getCanonicalEventData(p)); !strings.Contains(got,
+		`"image_digests":["rg.fr-par.scw.cloud/acme/api@sha256:`+strings.Repeat("1", 64)+`"]`) {
+		t.Errorf("image digests missing from the signed canonical form: %s", got)
+	}
+
+	p.Manifest = &Manifest{Version: "1.0", Payload: ManifestPayload{BinaryHash: "sha256:" + strings.Repeat("a", 64)}}
+	if got := string(getCanonicalEventData(p)); strings.Contains(got, "image_digests") {
+		t.Errorf("a manifest without images must not carry the key: %s", got)
+	}
+}
