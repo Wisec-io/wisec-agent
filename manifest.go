@@ -137,9 +137,12 @@ func resolveSARIF(manifest *Manifest) string {
 		return ""
 	}
 
-	canonical, err := canonicalizeJSON(raw)
+	canonical, err := stripSARIFCode(raw)
 	if err != nil {
-		canonical = raw // fall back to the raw bytes if not valid JSON
+		// Not JSON, so not SARIF the analysis could read anyway. It used to be
+		// sent as raw bytes, which could be anything the scanner wrote.
+		logInfo("  SARIF report at %s is not valid JSON, not sent", sarifPath)
+		return ""
 	}
 	sum := sha256.Sum256(canonical)
 	manifest.Payload.ScanReportHash = "sha256:" + hex.EncodeToString(sum[:])
@@ -157,5 +160,43 @@ func signManifest(manifest *Manifest, pub ed25519.PublicKey, priv ed25519.Privat
 	return ManifestSignature{
 		PubKey:         hex.EncodeToString(pub),
 		SignatureValue: hex.EncodeToString(ed25519.Sign(priv, signed)),
+	}
+}
+
+// sarifCodeFields are the SARIF properties that quote source code: the lines
+// around a result (snippet, contextRegion), the code a tool proposes as a fix
+// (fixes), and whole embedded files (contents). Wisec reads the rule, the
+// location, the line and the message; none of these. Removing them wherever
+// they appear means a scanner report can no longer carry code out of the CI.
+var sarifCodeFields = map[string]bool{"snippet": true, "contextRegion": true, "fixes": true, "contents": true}
+
+// stripSARIFCode returns the canonical JSON of a SARIF report without the
+// fields that quote source code.
+func stripSARIFCode(raw []byte) ([]byte, error) {
+	var doc any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, err
+	}
+	return json.Marshal(dropSARIFCode(doc))
+}
+
+func dropSARIFCode(v any) any {
+	switch node := v.(type) {
+	case map[string]any:
+		for key, child := range node {
+			if sarifCodeFields[key] {
+				delete(node, key)
+				continue
+			}
+			node[key] = dropSARIFCode(child)
+		}
+		return node
+	case []any:
+		for i, child := range node {
+			node[i] = dropSARIFCode(child)
+		}
+		return node
+	default:
+		return v
 	}
 }

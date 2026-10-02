@@ -6,9 +6,13 @@ which notarizes the build and runs supply-chain analysis (CVEs, secrets, SBOM
 diff, typosquatting).
 
 It is designed to be auditable: it is the only Wisec component that runs inside
-your infrastructure, so its source is public. **Your source code is never read,
-transmitted or stored** - the agent only collects dependency manifests and
-commit metadata.
+your infrastructure, so its source is public. **Your repository is never
+cloned or uploaded.** What leaves your CI is listed below: build metadata,
+dependency coordinates, the SBOM and the results of the scanners run locally.
+Since v1.2.0 the agent withholds what scanners quote from your code before
+anything is signed or sent: the value of a detected secret, and the source
+snippets of SARIF reports. Wisec learns that a rule fired at a location, not
+what the code there says.
 
 ## What it sends
 
@@ -17,9 +21,16 @@ For each build the agent produces a signed, canonical payload containing:
 - commit hash, branch, author email, timestamp
 - changed and deleted files (paths only)
 - dependency coordinates parsed from manifests
-- the gitleaks secret-scanning report
+- the gitleaks secret-scanning report, **without the secret**: since v1.2.0
+  gitleaks runs with `--redact` and the agent drops `Secret`, `Match`, `Line`,
+  `Author`, `Email` and `Message` from each finding, keeping the rule, the
+  file, the line numbers and the fingerprint. Earlier versions sent the
+  detected excerpt.
 - a CycloneDX SBOM (generated if the build does not provide one)
-- an optional SARIF report from another scanner
+- an optional SARIF report from another scanner, **without quoted code**:
+  since v1.2.0 the agent removes `snippet`, `contextRegion`, `fixes` and
+  `contents` wherever they appear, keeping rules, locations, lines and
+  messages. A report that is not valid JSON is not sent at all.
 - a manifest committing to the SHA-256 of the build artifacts
 - the hash of the previous build, to chain-link builds
 
