@@ -27,7 +27,13 @@ func TestDependencyFromPURL(t *testing.T) {
 		{"pkg:golang/github.com/foo/bar@v1.0.0?type=module", "go:github.com/foo/bar@v1.0.0", true},
 		// Missing version falls back to "latest".
 		{"pkg:pypi/requests", "pypi:requests@latest", true},
-		// Unsupported ecosystems are skipped, not mislabelled.
+		// Other language ecosystems are kept, so they are inventoried and the
+		// analysis can say it did not check them (dropped until v1.4.0).
+		{"pkg:cargo/serde@1.0.188", "cargo:serde@1.0.188", true},
+		{"pkg:nuget/Newtonsoft.Json@13.0.1", "nuget:Newtonsoft.Json@13.0.1", true},
+		{"pkg:gem/rails@7.1.2", "gem:rails@7.1.2", true},
+		{"pkg:composer/symfony/http-kernel@6.4.0", "composer:symfony/http-kernel@6.4.0", true},
+		// OS packages are not dependencies of the code: skipped, not mislabelled.
 		{"pkg:apk/alpine/musl@1.2.4", "", false},
 		{"pkg:deb/debian/libc6@2.31", "", false},
 		{"", "", false},

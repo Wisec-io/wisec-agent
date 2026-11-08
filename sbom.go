@@ -76,12 +76,29 @@ func generateCycloneDXSBOM(dependencies []string) ([]byte, error) {
 // purlTypeToEcosystem maps Package URL types to the ecosystem tokens the Wisec
 // analysis engine recognises for OSV lookups. syft and other SBOM tools emit
 // "golang" where the engine expects "go", so the mapping is not a pass-through.
+//
+// Language ecosystems the analysis does not check yet are kept too (cargo,
+// nuget...): until v1.4.0 they were dropped here, so a Rust or .NET dependency
+// appeared nowhere, not in the inventory nor in component search, and nothing
+// said it had not been checked. Kept, it is inventoried, and the analysis lists
+// it as unchecked. OS packages (deb, rpm, apk) and CI actions stay out: they
+// are not dependencies of the code that was built.
 var purlTypeToEcosystem = map[string]string{
 	"golang": "go",
 	"go":     "go", // the agent's own generated SBOMs use "go"
 	"npm":    "npm",
 	"pypi":   "pypi",
 	"maven":  "maven",
+	// Inventoried; vulnerability checking follows ecosystem by ecosystem.
+	"cargo":     "cargo",
+	"nuget":     "nuget",
+	"gem":       "gem",
+	"composer":  "composer",
+	"pub":       "pub",
+	"hex":       "hex",
+	"swift":     "swift",
+	"cocoapods": "cocoapods",
+	"conan":     "conan",
 }
 
 // dependenciesFromSBOM extracts dependency coordinates from a CycloneDX SBOM

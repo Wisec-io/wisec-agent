@@ -20,7 +20,7 @@ For each build the agent produces a signed, canonical payload containing:
 
 - commit hash, branch, author email, timestamp
 - changed and deleted files (paths only)
-- dependency coordinates parsed from manifests
+- dependency coordinates (see [Dependencies](#dependencies))
 - the gitleaks secret-scanning report, **without the secret**: since v1.2.0
   gitleaks runs with `--redact` and the agent drops `Secret`, `Match`, `Line`,
   `Author`, `Email` and `Message` from each finding, keeping the rule, the
@@ -36,6 +36,36 @@ For each build the agent produces a signed, canonical payload containing:
 
 The canonical form is hashed with SHA-256 and signed with Ed25519. The signature
 and the canonical data travel with the event so the API can verify them.
+
+## Dependencies
+
+The agent reads the dependency files in the working directory. A lockfile
+records the versions actually installed, transitive dependencies included, and
+replaces the manifest of its ecosystem when both are present. Lockfiles, and
+the Rust, .NET, Ruby and PHP ecosystems, are read since v1.4.0:
+
+| Ecosystem | Lockfile (preferred) | Manifest |
+|---|---|---|
+| npm | `package-lock.json` (v1, v2, v3) | `package.json` |
+| PyPI | `poetry.lock`, `uv.lock`, `Pipfile.lock` | `requirements.txt` |
+| Go | | `go.mod` |
+| Maven | | `pom.xml`, `build.gradle`, `build.gradle.kts` |
+| Rust (cargo) | `Cargo.lock` | |
+| .NET (NuGet) | `packages.lock.json` | |
+| Ruby (RubyGems) | `Gemfile.lock` | |
+| PHP (Composer) | `composer.lock` | |
+
+A manifest declares what is acceptable, not what is installed. A dependency
+recorded without an exact version (an npm range such as `^4.17.0`, a pip
+specifier such as `>=3.2`) is sent as written, and the analysis lists it as
+unchecked rather than guessing. Until v1.4.0, `django>=3.2` in a
+requirements file was recorded as `django@3.2`.
+
+When no dependency file sits in the working directory (a monorepo), the agent
+reads the components of the CycloneDX SBOM instead (`WISEC_SBOM_PATH`, for
+example produced by syft). Since v1.4.0 it keeps every language ecosystem the
+SBOM lists (cargo, nuget, gem, composer...), so they are inventoried; OS
+packages are left out.
 
 ## Modes
 
