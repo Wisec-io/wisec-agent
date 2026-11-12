@@ -25,7 +25,11 @@ For each build the agent produces a signed, canonical payload containing:
   gitleaks runs with `--redact` and the agent drops `Secret`, `Match`, `Line`,
   `Author`, `Email` and `Message` from each finding, keeping the rule, the
   file, the line numbers and the fingerprint. Earlier versions sent the
-  detected excerpt.
+  detected excerpt. Since v1.5.0, findings located in the reports the agent
+  reads as inputs (the SARIF of `WISEC_SCAN_REPORT_PATH` and the SBOM) are
+  ignored: those reports quote code and CVE texts that gitleaks mistakes for
+  keys, and a real secret they quote is still found in its source file. The
+  binary of `WISEC_BINARY_PATH` is still scanned.
 - a CycloneDX SBOM (generated if the build does not provide one)
 - an optional SARIF report from another scanner, **without quoted code**:
   since v1.2.0 the agent removes `snippet`, `contextRegion`, `fixes` and
